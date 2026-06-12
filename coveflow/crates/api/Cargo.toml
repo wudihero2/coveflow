@@ -1,0 +1,35 @@
+[package]
+name = "coveflow-api"
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+coveflow-types = { path = "../types" }
+coveflow-queue = { path = "../queue" }
+coveflow-flow-expr = { path = "../flow-expr" }
+prometheus-client = { workspace = true }
+axum = { workspace = true }
+tower-http = { workspace = true }
+jsonwebtoken = { workspace = true }
+argon2 = { workspace = true }
+sqlx = { workspace = true, features = ["macros", "uuid", "json", "chrono"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+sha2 = { workspace = true }
+async-stream = "0.3"
+futures = "0.3"
+rustpython-parser = "0.4"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+base64 = { workspace = true }
+
+[lints]
+workspace = true

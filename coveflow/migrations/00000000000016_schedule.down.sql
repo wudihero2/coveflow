@@ -1,0 +1,3 @@
+DROP INDEX IF EXISTS idx_run_schedule;
+ALTER TABLE run DROP COLUMN IF EXISTS schedule_id;
+DROP TABLE IF EXISTS schedule;

@@ -1,0 +1,1 @@
+ALTER TABLE script DROP COLUMN IF EXISTS runtime;

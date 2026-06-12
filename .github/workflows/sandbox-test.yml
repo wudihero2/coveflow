@@ -1,0 +1,317 @@
+name: Sandbox Tests
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  DATABASE_URL: postgres://postgres:postgres@localhost:5432/coveflow_test
+  NSJAIL_VERSION: "3.4"
+
+jobs:
+  # ---------- Shared: compile nsjail + Rust, run migrations ----------
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: coveflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: ./coveflow
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry & build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            coveflow/target
+          key: ${{ runner.os }}-cargo-sandbox-${{ hashFiles('coveflow/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-sandbox-
+
+      # -- nsjail compilation (cached) --
+      - name: Cache nsjail binary
+        id: cache-nsjail
+        uses: actions/cache@v4
+        with:
+          path: /usr/sbin/nsjail
+          key: nsjail-${{ env.NSJAIL_VERSION }}-${{ runner.os }}
+
+      - name: Install nsjail build dependencies
+        if: steps.cache-nsjail.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            autoconf automake bison flex g++ gcc git \
+            libnl-3-dev libnl-route-3-dev libprotobuf-dev \
+            libtool make pkg-config protobuf-compiler
+
+      - name: Compile nsjail from source
+        if: steps.cache-nsjail.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch ${{ env.NSJAIL_VERSION }} \
+            https://github.com/google/nsjail.git /tmp/nsjail
+          cd /tmp/nsjail
+          make -j$(nproc)
+          sudo cp /tmp/nsjail/nsjail /usr/sbin/nsjail
+
+      - name: Install nsjail runtime dependencies
+        if: steps.cache-nsjail.outputs.cache-hit == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libnl-3-200 libnl-route-3-200 libprotobuf32
+
+      - name: Verify nsjail
+        run: nsjail --help | head -5
+
+      # -- Migrations --
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --no-default-features --features postgres
+
+      - name: Run migrations
+        run: sqlx migrate run --source migrations
+
+      # -- Build test binary (shared across matrix jobs) --
+      - name: Build test binary
+        run: cargo test -p coveflow-worker --no-run
+
+      # -- Upload artifacts for matrix jobs --
+      - name: Upload test binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: sandbox-test-artifacts
+          retention-days: 1
+          path: |
+            coveflow/target/debug/deps/coveflow_worker-*
+            !coveflow/target/debug/deps/coveflow_worker-*.d
+
+      - name: Upload nsjail binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: nsjail-binary
+          retention-days: 1
+          path: /usr/sbin/nsjail
+
+  # ---------- Matrix: one job per Python version, runs in parallel ----------
+  test:
+    name: "Python ${{ matrix.python-version }}"
+    needs: build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: coveflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    defaults:
+      run:
+        working-directory: ./coveflow
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Restore Cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            coveflow/target
+          key: ${{ runner.os }}-cargo-sandbox-${{ hashFiles('coveflow/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-sandbox-
+
+      # -- Migrations --
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --no-default-features --features postgres
+
+      - name: Run migrations
+        run: sqlx migrate run --source migrations
+
+      # -- Restore nsjail --
+      - name: Download nsjail binary
+        uses: actions/download-artifact@v4
+        with:
+          name: nsjail-binary
+          path: /tmp/nsjail-bin
+
+      - name: Install nsjail
+        run: |
+          sudo cp /tmp/nsjail-bin/nsjail /usr/sbin/nsjail
+          sudo chmod +x /usr/sbin/nsjail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libnl-3-200 libnl-route-3-200 libprotobuf32
+
+      # -- Prepare rootfs for this Python version --
+      - name: Cache Python ${{ matrix.python-version }} rootfs
+        id: cache-rootfs
+        uses: actions/cache@v4
+        with:
+          path: /opt/sandbox-rootfs/python-${{ matrix.python-version }}
+          key: sandbox-rootfs-python${{ matrix.python-version }}-v1
+
+      - name: Prepare Python ${{ matrix.python-version }} rootfs
+        if: steps.cache-rootfs.outputs.cache-hit != 'true'
+        run: |
+          sudo mkdir -p /opt/sandbox-rootfs/python-${{ matrix.python-version }}
+          docker pull python:${{ matrix.python-version }}-slim
+          docker create --name tmp-rootfs python:${{ matrix.python-version }}-slim /bin/true
+          docker export tmp-rootfs | sudo tar -C /opt/sandbox-rootfs/python-${{ matrix.python-version }} -xf -
+          docker rm tmp-rootfs
+          sudo mkdir -p /opt/sandbox-rootfs/python-${{ matrix.python-version }}/work
+          sudo chown -R 99999:99999 /opt/sandbox-rootfs/python-${{ matrix.python-version }}/work
+          sudo chmod 755 /opt/sandbox-rootfs/python-${{ matrix.python-version }}/work
+
+      # -- Run nsjail test for this Python version --
+      - name: Run sandbox test (Python ${{ matrix.python-version }})
+        run: |
+          PY_TAG=$(echo "${{ matrix.python-version }}" | tr -d '.')
+          sudo -E env "PATH=$PATH" \
+            cargo test -p coveflow-worker "test_execute_python${PY_TAG}" -- --include-ignored
+        env:
+          RUST_LOG: debug
+          RUST_BACKTRACE: "1"
+
+  # ---------- Cgroup resource limit tests (memory, CPU, PIDs) ----------
+  cgroup-test:
+    name: Cgroup limits
+    needs: build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: coveflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: ./coveflow
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Restore Cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            coveflow/target
+          key: ${{ runner.os }}-cargo-sandbox-${{ hashFiles('coveflow/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-sandbox-
+
+      # -- Migrations --
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --no-default-features --features postgres
+
+      - name: Run migrations
+        run: sqlx migrate run --source migrations
+
+      # -- Restore nsjail --
+      - name: Download nsjail binary
+        uses: actions/download-artifact@v4
+        with:
+          name: nsjail-binary
+          path: /tmp/nsjail-bin
+
+      - name: Install nsjail
+        run: |
+          sudo cp /tmp/nsjail-bin/nsjail /usr/sbin/nsjail
+          sudo chmod +x /usr/sbin/nsjail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libnl-3-200 libnl-route-3-200 libprotobuf32
+
+      # -- Prepare default rootfs (Python 3.12) --
+      - name: Cache Python 3.12 rootfs
+        id: cache-rootfs
+        uses: actions/cache@v4
+        with:
+          path: /opt/sandbox-rootfs/python-3.12
+          key: sandbox-rootfs-python3.12-v1
+
+      - name: Prepare Python 3.12 rootfs
+        if: steps.cache-rootfs.outputs.cache-hit != 'true'
+        run: |
+          sudo mkdir -p /opt/sandbox-rootfs/python-3.12
+          docker pull python:3.12-slim
+          docker create --name tmp-rootfs python:3.12-slim /bin/true
+          docker export tmp-rootfs | sudo tar -C /opt/sandbox-rootfs/python-3.12 -xf -
+          docker rm tmp-rootfs
+          sudo mkdir -p /opt/sandbox-rootfs/python-3.12/work
+          sudo chown -R 99999:99999 /opt/sandbox-rootfs/python-3.12/work
+          sudo chmod 755 /opt/sandbox-rootfs/python-3.12/work
+
+      # -- Setup cgroupv2 for nsjail --
+      - name: Setup cgroupv2 for nsjail
+        run: |
+          echo "=== cgroup info ==="
+          cat /sys/fs/cgroup/cgroup.controllers
+          cat /sys/fs/cgroup/cgroup.subtree_control
+          sudo mkdir -p /sys/fs/cgroup/NSJAIL
+          echo "+pids +memory +cpu" | sudo tee /sys/fs/cgroup/cgroup.subtree_control || true
+          echo "+pids +memory +cpu" | sudo tee /sys/fs/cgroup/NSJAIL/cgroup.subtree_control || true
+
+      # -- Run cgroup + other nsjail tests (skip per-version tests, those run in the matrix job) --
+      - name: Run nsjail tests (cgroup, health check, basic execution)
+        run: |
+          sudo -E env "PATH=$PATH" \
+            cargo test -p coveflow-worker "sandbox::nsjail" -- --include-ignored --skip test_execute_python
+        env:
+          RUST_LOG: debug
+          RUST_BACKTRACE: "1"

@@ -1,0 +1,32 @@
+-- Drop all tables in reverse dependency order
+
+DROP TABLE IF EXISTS deploy_approval;
+DROP TABLE IF EXISTS deploy_request;
+DROP TABLE IF EXISTS approval_policy;
+DROP TABLE IF EXISTS workspace_settings;
+DROP TABLE IF EXISTS worker_ping;
+DROP TABLE IF EXISTS worker_config;
+DROP TABLE IF EXISTS concurrency_limit;
+DROP TABLE IF EXISTS event_log;
+DROP TABLE IF EXISTS run_state_history;
+DROP TABLE IF EXISTS run_flow_status;
+DROP TABLE IF EXISTS run_log;
+DROP TABLE IF EXISTS run_completed;
+DROP TABLE IF EXISTS run_queue;
+DROP TABLE IF EXISTS run;
+DROP TABLE IF EXISTS flow_file;
+DROP TABLE IF EXISTS flow;
+DROP TABLE IF EXISTS script;
+DROP TABLE IF EXISTS folder_acl;
+DROP TABLE IF EXISTS folder;
+DROP TABLE IF EXISTS team_acl;
+DROP TABLE IF EXISTS team_quota;
+DROP TABLE IF EXISTS team_member;
+DROP TABLE IF EXISTS team;
+DROP TABLE IF EXISTS session;
+DROP TABLE IF EXISTS workspace_member;
+DROP TABLE IF EXISTS variable;
+DROP TABLE IF EXISTS resource;
+DROP TABLE IF EXISTS resource_type;
+DROP TABLE IF EXISTS account;
+DROP TABLE IF EXISTS workspace;

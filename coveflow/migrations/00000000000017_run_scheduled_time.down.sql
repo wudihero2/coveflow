@@ -1,0 +1,1 @@
+ALTER TABLE run DROP COLUMN IF EXISTS scheduled_time;

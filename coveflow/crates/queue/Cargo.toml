@@ -1,0 +1,27 @@
+[package]
+name = "coveflow-queue"
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+coveflow-types = { path = "../types" }
+coveflow-flow-expr = { path = "../flow-expr" }
+sqlx = { workspace = true, features = ["macros", "uuid", "json", "chrono"] }
+uuid = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+chrono-tz = { workspace = true }
+croner = { workspace = true }
+
+[dev-dependencies]
+sqlx = { workspace = true, features = ["macros", "uuid", "json", "chrono", "migrate"] }
+tokio = { workspace = true }
+
+[lints]
+workspace = true

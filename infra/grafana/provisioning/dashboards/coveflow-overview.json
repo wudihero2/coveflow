@@ -1,0 +1,201 @@
+{
+  "uid": "coveflow-overview",
+  "title": "CoveFlow Overview",
+  "tags": ["coveflow"],
+  "timezone": "browser",
+  "editable": true,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP Request Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{job=\"coveflow-api\"}[1m])) by (method, path)",
+          "legendFormat": "{{method}} {{path}}",
+          "datasource": { "type": "prometheus" },
+          "exemplar": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "showPoints": "never", "spanNulls": true }
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "id": 2,
+      "title": "HTTP Error Rate (5xx)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{job=\"coveflow-api\",status=~\"5..\"}[1m]))",
+          "legendFormat": "5xx/s",
+          "datasource": { "type": "prometheus" },
+          "exemplar": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "showPoints": "never", "spanNulls": true }
+        }
+      },
+      "links": [
+        {
+          "title": "View error traces in Tempo",
+          "type": "link",
+          "url": "/explore?orgId=1&left={\"datasource\":\"tempo\",\"queries\":[{\"refId\":\"A\",\"queryType\":\"traceqlSearch\",\"filters\":[{\"id\":\"status\",\"tag\":\"status\",\"value\":\"error\"}]}]}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "HTTP Latency (p50 / p95 / p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_seconds_bucket{job=\"coveflow-api\"}[1m])) by (le))",
+          "legendFormat": "p50",
+          "datasource": { "type": "prometheus" },
+          "exemplar": true
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"coveflow-api\"}[1m])) by (le))",
+          "legendFormat": "p95",
+          "datasource": { "type": "prometheus" },
+          "exemplar": true
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job=\"coveflow-api\"}[1m])) by (le))",
+          "legendFormat": "p99",
+          "datasource": { "type": "prometheus" },
+          "exemplar": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "showPoints": "never", "spanNulls": true }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Queue Depth",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (worker) (queue_depth{job=\"coveflow-worker\"})",
+          "legendFormat": "{{worker}} pending",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "custom": { "showPoints": "never", "spanNulls": true, "fillOpacity": 15, "lineWidth": 2 }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Throughput (jobs/min)",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 6, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (worker) (rate(jobs_completed_total{job=\"coveflow-worker\"}[1m])) * 60",
+          "legendFormat": "{{worker}}",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "custom": { "showPoints": "never", "spanNulls": true, "fillOpacity": 15, "lineWidth": 2 }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Job Failure Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 10, "x": 14, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (worker) (rate(jobs_failed_total{job=\"coveflow-worker\"}[1m])) / (sum by (worker) (rate(jobs_completed_total{job=\"coveflow-worker\"}[1m])) + 1e-10)",
+          "legendFormat": "{{worker}} failure rate",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": { "showPoints": "never", "spanNulls": true }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Job Duration (p50 / p95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, worker) (rate(job_duration_seconds_bucket{job=\"coveflow-worker\"}[1m])))",
+          "legendFormat": "{{worker}} p50",
+          "datasource": { "type": "prometheus" },
+          "exemplar": true
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, worker) (rate(job_duration_seconds_bucket{job=\"coveflow-worker\"}[1m])))",
+          "legendFormat": "{{worker}} p95",
+          "datasource": { "type": "prometheus" },
+          "exemplar": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "showPoints": "never", "spanNulls": true }
+        }
+      },
+      "links": [
+        {
+          "title": "View slow traces in Tempo",
+          "type": "link",
+          "url": "/explore?orgId=1&left={\"datasource\":\"tempo\",\"queries\":[{\"refId\":\"A\",\"queryType\":\"traceqlSearch\",\"filters\":[{\"id\":\"min-duration\",\"tag\":\"duration\",\"operator\":\">\",\"value\":[\"1s\"]}]}]}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Queue Wait Time (p95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, worker) (rate(job_queue_wait_seconds_bucket{job=\"coveflow-worker\"}[1m])))",
+          "legendFormat": "{{worker}} p95 wait",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "showPoints": "never", "spanNulls": true }
+        }
+      }
+    }
+  ],
+  "schemaVersion": 39
+}

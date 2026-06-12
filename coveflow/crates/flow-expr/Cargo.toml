@@ -1,0 +1,13 @@
+[package]
+name = "coveflow-flow-expr"
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

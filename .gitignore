@@ -1,0 +1,10 @@
+# Rust
+coveflow/target/
+# sqlx offline query cache — not used; builds run against a live Postgres.
+coveflow/.sqlx/
+
+# Environment
+.env
+
+# Local tool output
+/.playwright-mcp/

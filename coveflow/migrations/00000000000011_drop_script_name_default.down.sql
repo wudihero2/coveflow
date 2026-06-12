@@ -1,0 +1,1 @@
+ALTER TABLE script ALTER COLUMN name SET DEFAULT '';

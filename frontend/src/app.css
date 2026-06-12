@@ -1,0 +1,49 @@
+@import 'tailwindcss';
+
+@theme {
+	/* Surface hierarchy - clean whites with subtle cool undertone */
+	--color-surface: oklch(0.985 0.002 260);
+	--color-surface-alt: oklch(0.96 0.005 260);
+	--color-surface-raised: oklch(1 0 0);
+	--color-surface-sunken: oklch(0.94 0.008 260);
+
+	/* Border hierarchy */
+	--color-border: oklch(0.88 0.005 260);
+	--color-border-subtle: oklch(0.92 0.003 260);
+	--color-border-strong: oklch(0.76 0.01 260);
+
+	/* Text hierarchy */
+	--color-text: oklch(0.25 0.01 260);
+	--color-text-secondary: oklch(0.45 0.01 260);
+	--color-text-tertiary: oklch(0.6 0.008 260);
+
+	/* Primary accent - professional blue */
+	--color-accent: oklch(0.55 0.18 250);
+	--color-accent-hover: oklch(0.48 0.2 250);
+	--color-accent-subtle: oklch(0.95 0.025 250);
+
+	/* Status colors - high contrast on light backgrounds */
+	--color-success: oklch(0.52 0.17 155);
+	--color-warning: oklch(0.65 0.16 75);
+	--color-error: oklch(0.55 0.22 25);
+	--color-info: oklch(0.55 0.15 250);
+	--color-neutral: oklch(0.6 0.01 260);
+}
+
+:root {
+	color-scheme: light;
+}
+
+/* Flow editor: make edges visibly interactive (they have a wide invisible hit
+   area, but no hover cue by default — users couldn't tell edges are clickable). */
+.svelte-flow__edge {
+	cursor: pointer;
+}
+.svelte-flow__edge:hover .svelte-flow__edge-path {
+	stroke: var(--color-accent);
+	stroke-width: 2.5;
+}
+.svelte-flow__edge.selected .svelte-flow__edge-path {
+	stroke: var(--color-accent);
+	stroke-width: 2.5;
+}

@@ -1,0 +1,203 @@
+{
+  "uid": "coveflow-worker",
+  "title": "CoveFlow Worker",
+  "tags": ["coveflow", "worker"],
+  "timezone": "browser",
+  "editable": true,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "CPU Used / Total",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "resource_cpus_used{job=\"coveflow-worker\"}",
+          "legendFormat": "{{worker}} Used",
+          "datasource": { "type": "prometheus" }
+        },
+        {
+          "expr": "resource_cpus_total{job=\"coveflow-worker\"}",
+          "legendFormat": "{{worker}} Total",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": { "showPoints": "never", "spanNulls": true, "fillOpacity": 10 }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": "/.* Total/" },
+            "properties": [
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } },
+              { "id": "custom.fillOpacity", "value": 0 },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "semi-dark-orange" } }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "title": "Memory Used / Total (MB)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "resource_memory_used_mb{job=\"coveflow-worker\"}",
+          "legendFormat": "{{worker}} Used",
+          "datasource": { "type": "prometheus" }
+        },
+        {
+          "expr": "resource_memory_total_mb{job=\"coveflow-worker\"}",
+          "legendFormat": "{{worker}} Total",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmbytes",
+          "min": 0,
+          "custom": { "showPoints": "never", "spanNulls": true, "fillOpacity": 10 }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": "/.* Total/" },
+            "properties": [
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } },
+              { "id": "custom.fillOpacity", "value": 0 },
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "semi-dark-orange" } }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "title": "Jobs Pulled Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (worker) (rate(jobs_pulled_total{job=\"coveflow-worker\"}[1m]))",
+          "legendFormat": "{{worker}} pulls/s",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "showPoints": "never", "spanNulls": true }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Job Duration (p50 / p95 / p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, worker) (rate(job_duration_seconds_bucket{job=\"coveflow-worker\"}[1m])))",
+          "legendFormat": "{{worker}} p50",
+          "datasource": { "type": "prometheus" }
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, worker) (rate(job_duration_seconds_bucket{job=\"coveflow-worker\"}[1m])))",
+          "legendFormat": "{{worker}} p95",
+          "datasource": { "type": "prometheus" }
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le, worker) (rate(job_duration_seconds_bucket{job=\"coveflow-worker\"}[1m])))",
+          "legendFormat": "{{worker}} p99",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "showPoints": "never", "spanNulls": true }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Queue Wait Time (p95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, worker) (rate(job_queue_wait_seconds_bucket{job=\"coveflow-worker\"}[1m])))",
+          "legendFormat": "{{worker}} p95 wait",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "showPoints": "never", "spanNulls": true }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Sandbox Execution Duration (p95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, worker) (rate(sandbox_execute_duration_seconds_bucket{job=\"coveflow-worker\"}[1m])))",
+          "legendFormat": "{{worker}} p95",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "showPoints": "never", "spanNulls": true }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Sandbox Errors",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "expr": "sum by (mode, worker) (rate(sandbox_execute_errors_total{job=\"coveflow-worker\"}[1m]))",
+          "legendFormat": "{{worker}} {{mode}}",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "showPoints": "never", "spanNulls": true }
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Timeout Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "targets": [
+        {
+          "expr": "sum by (worker) (rate(jobs_timeout_total{job=\"coveflow-worker\"}[1m]))",
+          "legendFormat": "{{worker}} timeouts/s",
+          "datasource": { "type": "prometheus" }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "showPoints": "never", "spanNulls": true }
+        }
+      }
+    }
+  ],
+  "schemaVersion": 39
+}
